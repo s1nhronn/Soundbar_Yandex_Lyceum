@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 
 # noinspection SpellCheckingInspection
-class bcolors:
+class Bcolors:
+    """
+    Класс для цветного текста в выводе через print()
+    """
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
     OKCYAN = '\033[96m'

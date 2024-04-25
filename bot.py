@@ -1,3 +1,6 @@
+"""
+Основной файл, в котором прописана вся логика работы с дискордом
+"""
 import os
 from contextlib import suppress
 import discord
@@ -7,8 +10,7 @@ from discord.ext.commands import Context
 import functions as fn
 from config import path_to_ffmpeg
 from TOKEN import token
-from bcolors import bcolors
-from icecream import ic
+from bcolors import Bcolors
 
 intents = discord.Intents.all()
 intents.message_content = True
@@ -17,22 +19,41 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 
 
 @bot.event
-async def on_ready():
-    print(bcolors.OKGREEN + 'Бот запущен' + bcolors.ENDC)
+async def on_ready() -> None:
+    """
+    Функция, запускающаяся при запуске бота
+    """
+    print(Bcolors.OKGREEN + 'Бот запущен' + Bcolors.ENDC)
 
 
 class Soundbar(discord.ui.View):
+    """
+    Главный класс, отвечающий за саму клавиатуру
+    """
+
     def __init__(self):
         super().__init__(timeout=3600)
 
 
 class ShowBar:
+    """
+    Вспомогательный класс для отображения всей звуковой панели сразу
+    """
+
     def __init__(self, ctx: Context, cut_lst: list, message=None):
+        """
+        :param ctx:
+        :param cut_lst: Список звуков для данной страницы
+        :param message: Сообщение, которое нужно поменять. Если нету, будет создано новое
+        """
         self.ctx = ctx
         self.cut_lst = cut_lst
         self.message = message
 
-    def show_bar(self):
+    def show_bar(self) -> Soundbar:
+        """
+        :return: Объект клавиатуры
+        """
         ctx = self.ctx
         lst = self.cut_lst
         view = Soundbar()
@@ -51,8 +72,22 @@ class ShowBar:
 
 
 class AddSound:
-    def __init__(self, ctx: Context, lst: list, lng: int, author, view: Soundbar, cut=(0, 16),
+    """
+    Класс для отображения страницы звуковой панели
+    """
+
+    def __init__(self, ctx: Context, lst: list, lng: int, author: discord.Interaction.user | Context.author,
+                 view: Soundbar, cut=(0, 16),
                  edit=None):
+        """
+        :param ctx:
+        :param lst: Список звуков
+        :param lng: Ограничение на кол-во звуков в панели
+        :param author: Кто вызвал звуковую панель
+        :param view: Объект клавиатуры
+        :param cut: Индексы, показывающие, какой срез списка нужен
+        :param edit: Сообщение, которое нужно поменять. Если None, будет создано новое
+        """
         self.ctx = ctx
         self.cut = cut
         self.lst = lst
@@ -64,7 +99,7 @@ class AddSound:
         self.author = author
         self.sound_time = None
 
-    async def add_sound(self):
+    async def add_sound(self) -> None:
         view = self.view
         ctx = self.ctx
         cut = self.cut
@@ -79,14 +114,25 @@ class AddSound:
             cls = Sound(ctx, i, lst)
             view.add_item(create_button(lst[i][1], func=cls.sound, style=discord.ButtonStyle.blurple, row=row))
 
-        async def back(interaction: discord.Interaction):
+        async def back(interaction: discord.Interaction) -> None:
+            """
+            Функция для перелистывания страницы назад
+            :param interaction:
+            :return:
+            """
             view.clear_items()
             embed = discord.Embed(description=f'{author.mention}, выберете звук:', color=0xFF8C00)
+            # noinspection PyUnresolvedReferences
             await interaction.response.edit_message(embed=embed)
             await AddSound(ctx, original_lst, self.length, author, view, cut=(cut[0] - 16, cut[1] - 16),
                            edit=self.message).add_sound()
 
-        async def stop(interaction: discord.Interaction):
+        async def stop(interaction: discord.Interaction) -> None:
+            """
+            Функция для остановки воспроизведения звука
+            :param interaction:
+            :return:
+            """
             flag = True if type(self.message) is list else False
             server = interaction.guild
             voice = discord.utils.get(bot.voice_clients, guild=server)
@@ -94,12 +140,19 @@ class AddSound:
                 voice.pause()
             embed = discord.Embed(description=f'{author.mention}, выберете звук:', color=0xFF8C00)
             if not flag:
+                # noinspection PyUnresolvedReferences
                 await interaction.response.edit_message(embed=embed)
             else:
                 await self.message[0].edit(embed=embed)
+                # noinspection PyUnresolvedReferences
                 await interaction.response.edit_message(view=self.show)
 
-        async def quit_(interaction: discord.Interaction):
+        async def quit_(interaction: discord.Interaction) -> None:
+            """
+            Функция для отключения бота от голосового канала
+            :param interaction:
+            :return:
+            """
             flag = True if type(self.message) is list else False
             server = interaction.guild
             voice = discord.utils.get(bot.voice_clients, guild=server)
@@ -110,26 +163,42 @@ class AddSound:
             except AttributeError:
                 embed = discord.Embed(description=f'{author.mention}, я не нахожусь в голосовом канале', color=0xFF0000)
                 if not flag:
+                    # noinspection PyUnresolvedReferences
                     await interaction.response.edit_message(embed=embed)
                 else:
                     await self.message[0].edit(embed=embed)
+                    # noinspection PyUnresolvedReferences
                     await interaction.response.edit_message(view=self.show)
                 return
             embed = discord.Embed(description=f'{author.mention}, Пока 👋', color=0xFF8C00)
             if not flag:
+                # noinspection PyUnresolvedReferences
                 await interaction.response.edit_message(embed=embed)
             else:
                 await self.message[0].edit(embed=embed)
+                # noinspection PyUnresolvedReferences
                 await interaction.response.edit_message(view=self.show)
 
-        async def forward(interaction: discord.Interaction):
+        async def forward(interaction: discord.Interaction) -> None:
+            """
+            Функция для перелистывания страницы вперёд.
+            :param interaction:
+            :return:
+            """
             view.clear_items()
             embed = discord.Embed(description=f'{author.mention}, выберете звук:', color=0xFF8C00)
+            # noinspection PyUnresolvedReferences
             await interaction.response.edit_message(embed=embed)
             await AddSound(ctx, original_lst, self.length, author, view, cut=(cut[0] + 16, cut[1] + 16),
                            edit=self.message).add_sound()
 
-        async def show_all(interaction: discord.Interaction):
+        async def show_all(interaction: discord.Interaction) -> None:
+            """
+            Функция для отображения всей звуковой панели
+            :param interaction:
+            :return:
+            """
+            # noinspection PyUnresolvedReferences
             await interaction.response.edit_message(view=self.view)
             cut = (0, 16)
             lst = original_lst[cut[0]:cut[1]]
@@ -179,14 +248,25 @@ class AddSound:
 
 
 class Sound:
+    """
+    Класс, отвечающий за кнопку воспроизведения звука
+    """
+
     def __init__(self, ctx: Context, k, lst: list, message=None, view=None):
+        """
+        :param ctx:
+        :param k: Индекс звука в списке
+        :param lst: Список звуков
+        :param message: Сообщение, которое нужно поменять
+        :param view: Объект клавиатуры
+        """
         self.k = k
         self.lst = lst
         self.ctx = ctx
         self.message = message
         self.view = view
 
-    async def sound(self, interaction: discord.Interaction):
+    async def sound(self, interaction: discord.Interaction) -> None:
         server = interaction.guild
         lst = self.lst
         k = self.k
@@ -199,8 +279,10 @@ class Sound:
                 color=0xFF0000)
             if self.message is not None:
                 await self.message.edit(embed=embed)
+                # noinspection PyUnresolvedReferences
                 await interaction.response.edit_message(view=self.view)
             else:
+                # noinspection PyUnresolvedReferences
                 await interaction.response.edit_message(embed=embed)
             return
         voice_channel = discord.utils.get(server.voice_channels, name=name_channel)
@@ -223,25 +305,43 @@ class Sound:
                 embed = discord.Embed(description=f'{author.mention}, ошибка при воспроизведении звука', color=0xFF0000)
                 if self.message is not None:
                     await self.message.edit(embed=embed)
+                    # noinspection PyUnresolvedReferences
                     await interaction.response.edit_message(view=self.view)
                 else:
+                    # noinspection PyUnresolvedReferences
                     await interaction.response.edit_message(embed=embed)
                 return
         embed = discord.Embed(description=f'{author.mention}, сейчас играет "{lst[k][1]}"', color=0xFF8C00)
         if self.message is not None:
             await self.message.edit(embed=embed)
+            # noinspection PyUnresolvedReferences
             await interaction.response.edit_message(view=self.view)
         else:
+            # noinspection PyUnresolvedReferences
             await interaction.response.edit_message(embed=embed)
 
 
-def create_button(name: str, func, style=discord.ButtonStyle.grey, row=None, disabled=False):
+def create_button(name: str, func, style=discord.ButtonStyle.grey, row=None, disabled=False) -> discord.ui.Button:
+    """
+    Класс для создания объекта кнопки и подключения к ней функции
+    :param name: Текст на кнопке
+    :param func: Функция, которую требуется привязать к кнопке
+    :param style: Стиль кнопки
+    :param row: Ряд кнопки
+    :param disabled: Включена или выключена
+    :return: Объект кнопки
+    """
     button = discord.ui.Button(label=name, style=style, row=row, disabled=disabled)
     button.callback = func
     return button
 
 
-def found_mp3(url: str):
+def found_mp3(url: str) -> str:
+    """
+    Функция для нахождения имени прикрепленного файла
+    :param url: URL прикрепленного файла
+    :return: Название файла
+    """
     url = url.lstrip('https://cdn.discordapp.com/attachments/')
     url = url[url.find('/') + 1:]
     url = url[url.find('/') + 1:]
@@ -251,7 +351,12 @@ def found_mp3(url: str):
 
 @bot.command()
 @commands.guild_only()
-async def soundbar(ctx: Context):
+async def soundbar(ctx: Context) -> None:
+    """
+    Команда для вызова звуковой панели
+    :param ctx:
+    :return:
+    """
     result = fn.fetch_data(1, 2000, int(ctx.guild.id))
     lst = []
     for row in result:
@@ -262,7 +367,15 @@ async def soundbar(ctx: Context):
 
 @bot.command()
 @commands.guild_only()
-async def load(ctx: Context, url: str, *name):
+async def load(ctx: Context, url: str, *name) -> None:
+    """
+    Команда для загрузки звука. Требуется указывать ссылку-установщик и желаемое имя. Если ссылки нет,
+    ожидается прикрепленный файл.
+    :param ctx:
+    :param url: Ссылка-установщик (в случае отсутствия ожидается прикрепленный файл)
+    :param name: Желаемое название звука
+    :return:
+    """
     extensions = ['.aac', '.ac3', '.aif', '.aiff', '.amr', '.aob', '.ape', '.asf', '.aud', '.awb', '.bin', '.bwg',
                   '.cdr', '.flac', '.gpx', '.ics', '.iff', '.m', '.m3u', '.m3u8', '.m4a', '.m4b', '.m4r', '.mid',
                   '.midi', '.mod', '.mp3', '.mpa', '.mpp', '.msc', '.msv', '.mts', '.nkc', '.ogg', '.ps', '.ra',
@@ -357,7 +470,13 @@ async def load(ctx: Context, url: str, *name):
 
 @bot.command()
 @commands.guild_only()
-async def delete(ctx: Context, *name):
+async def delete(ctx: Context, *name) -> None:
+    """
+    Удаление звука
+    :param ctx:
+    :param name: Название звука
+    :return:
+    """
     name = ' '.join(name)
     author = ctx.author
     sound_path = fn.path_to_delete(name, int(ctx.guild.id))
