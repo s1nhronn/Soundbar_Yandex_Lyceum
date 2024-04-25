@@ -1,0 +1,6 @@
+# Project exclude paths
+/.venv/
+/.idea/
+/token/
+/test.py/
+/TOKEN.py/
