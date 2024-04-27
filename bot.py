@@ -13,7 +13,6 @@ from TOKEN import token
 from bcolors import Bcolors
 
 intents = discord.Intents.all()
-intents.message_content = True
 path = os.getcwd()
 bot = commands.Bot(command_prefix='/', intents=intents)
 
@@ -44,7 +43,7 @@ class ShowBar:
         """
         :param ctx:
         :param cut_lst: Список звуков для данной страницы
-        :param message: Сообщение, которое нужно поменять. Если нету, будет создано новое
+        :param message: Сообщение, которое нужно поменять. Если None, будет создано новое
         """
         self.ctx = ctx
         self.cut_lst = cut_lst
@@ -67,18 +66,16 @@ class ShowBar:
                 cls = Sound(ctx, i, lst)
             else:
                 cls = Sound(ctx, i, lst, message=self.message, view=view)
-            view.add_item(create_button(lst[i][1], func=cls.sound, style=discord.ButtonStyle.blurple, row=row))
+            view.add_item(fn.create_button(lst[i][1], func=cls.sound, style=discord.ButtonStyle.blurple, row=row))
         return view
 
 
-class AddSound:
+class ShowPage:
     """
     Класс для отображения страницы звуковой панели
     """
 
-    def __init__(self, ctx: Context, lst: list, lng: int, author: discord.Interaction.user | Context.author,
-                 view: Soundbar, cut=(0, 16),
-                 edit=None):
+    def __init__(self, ctx: Context, lst: list, lng: int, author, view: Soundbar, cut=(0, 16), edit=None):
         """
         :param ctx:
         :param lst: Список звуков
@@ -97,7 +94,6 @@ class AddSound:
         self.message = None
         self.show = None
         self.author = author
-        self.sound_time = None
 
     async def add_sound(self) -> None:
         view = self.view
@@ -112,7 +108,7 @@ class AddSound:
             if i != 0 and i % length == 0:
                 row += 1
             cls = Sound(ctx, i, lst)
-            view.add_item(create_button(lst[i][1], func=cls.sound, style=discord.ButtonStyle.blurple, row=row))
+            view.add_item(fn.create_button(lst[i][1], func=cls.sound, style=discord.ButtonStyle.blurple, row=row))
 
         async def back(interaction: discord.Interaction) -> None:
             """
@@ -121,10 +117,10 @@ class AddSound:
             :return:
             """
             view.clear_items()
-            embed = discord.Embed(description=f'{author.mention}, выберете звук:', color=0xFF8C00)
+            embed = discord.Embed(description=f'{interaction.user.mention}, выберете звук:', color=0xFF8C00)
             # noinspection PyUnresolvedReferences
             await interaction.response.edit_message(embed=embed)
-            await AddSound(ctx, original_lst, self.length, author, view, cut=(cut[0] - 16, cut[1] - 16),
+            await ShowPage(ctx, original_lst, self.length, interaction.user, view, cut=(cut[0] - 16, cut[1] - 16),
                            edit=self.message).add_sound()
 
         async def stop(interaction: discord.Interaction) -> None:
@@ -138,7 +134,7 @@ class AddSound:
             voice = discord.utils.get(bot.voice_clients, guild=server)
             with suppress(AttributeError):
                 voice.pause()
-            embed = discord.Embed(description=f'{author.mention}, выберете звук:', color=0xFF8C00)
+            embed = discord.Embed(description=f'{interaction.user.mention}, выберете звук:', color=0xFF8C00)
             if not flag:
                 # noinspection PyUnresolvedReferences
                 await interaction.response.edit_message(embed=embed)
@@ -161,7 +157,8 @@ class AddSound:
             try:
                 await voice.disconnect(force=True)
             except AttributeError:
-                embed = discord.Embed(description=f'{author.mention}, я не нахожусь в голосовом канале', color=0xFF0000)
+                embed = discord.Embed(description=f'{interaction.user.mention}, я не нахожусь в голосовом канале',
+                                      color=0xFF0000)
                 if not flag:
                     # noinspection PyUnresolvedReferences
                     await interaction.response.edit_message(embed=embed)
@@ -170,7 +167,7 @@ class AddSound:
                     # noinspection PyUnresolvedReferences
                     await interaction.response.edit_message(view=self.show)
                 return
-            embed = discord.Embed(description=f'{author.mention}, Пока 👋', color=0xFF8C00)
+            embed = discord.Embed(description=f'{interaction.user.mention}, Пока 👋', color=0xFF8C00)
             if not flag:
                 # noinspection PyUnresolvedReferences
                 await interaction.response.edit_message(embed=embed)
@@ -186,10 +183,10 @@ class AddSound:
             :return:
             """
             view.clear_items()
-            embed = discord.Embed(description=f'{author.mention}, выберете звук:', color=0xFF8C00)
+            embed = discord.Embed(description=f'{interaction.user.mention}, выберете звук:', color=0xFF8C00)
             # noinspection PyUnresolvedReferences
             await interaction.response.edit_message(embed=embed)
-            await AddSound(ctx, original_lst, self.length, author, view, cut=(cut[0] + 16, cut[1] + 16),
+            await ShowPage(ctx, original_lst, self.length, interaction.user, view, cut=(cut[0] + 16, cut[1] + 16),
                            edit=self.message).add_sound()
 
         async def show_all(interaction: discord.Interaction) -> None:
@@ -205,7 +202,7 @@ class AddSound:
             message = None
             if lst[-1] != original_lst[-1]:
                 view = ShowBar(ctx, lst).show_bar()
-                embed = discord.Embed(description=f'{author.mention}, выберете звук:', color=0xFF8C00)
+                embed = discord.Embed(description=f'{interaction.user.mention}, выберете звук:', color=0xFF8C00)
                 message = await ctx.send(embed=embed, view=view)
                 cut = (cut[0] + 16, cut[1] + 16)
                 lst = original_lst[cut[0]:cut[1]]
@@ -218,23 +215,23 @@ class AddSound:
             self.message = [message]
             view = ShowBar(ctx, lst, message=message).show_bar()
             self.show = view
-            view.add_item(create_button(name='Stop', func=stop, style=discord.ButtonStyle.red, row=row + 1))
-            view.add_item(create_button(name='Quit', func=quit_, style=discord.ButtonStyle.red, row=row + 1))
+            view.add_item(fn.create_button(name='Stop', func=stop, style=discord.ButtonStyle.red, row=row + 1))
+            view.add_item(fn.create_button(name='Quit', func=quit_, style=discord.ButtonStyle.red, row=row + 1))
             await ctx.send(view=view)
 
         if cut[1] > 16:
-            view.add_item(create_button('⬅️', back, discord.ButtonStyle.green, row=row + 1))
+            view.add_item(fn.create_button('⬅️', back, discord.ButtonStyle.green, row=row + 1))
 
-        view.add_item(create_button(name='Stop', func=stop, style=discord.ButtonStyle.red, row=row + 1))
+        view.add_item(fn.create_button(name='Stop', func=stop, style=discord.ButtonStyle.red, row=row + 1))
 
         if len(original_lst) > 16:
-            view.add_item(create_button(name='Show all', func=show_all, style=discord.ButtonStyle.green,
-                                        row=row + 1))
+            view.add_item(fn.create_button(name='Show all', func=show_all, style=discord.ButtonStyle.green,
+                                           row=row + 1))
 
-        view.add_item(create_button(name='Quit', func=quit_, style=discord.ButtonStyle.red, row=row + 1))
+        view.add_item(fn.create_button(name='Quit', func=quit_, style=discord.ButtonStyle.red, row=row + 1))
 
         if cut[1] < len(original_lst) - 1:
-            view.add_item(create_button(name='➡️', func=forward, style=discord.ButtonStyle.green, row=row + 1))
+            view.add_item(fn.create_button(name='➡️', func=forward, style=discord.ButtonStyle.green, row=row + 1))
 
         author = self.author
         if self.edit is None:
@@ -321,34 +318,6 @@ class Sound:
             await interaction.response.edit_message(embed=embed)
 
 
-def create_button(name: str, func, style=discord.ButtonStyle.grey, row=None, disabled=False) -> discord.ui.Button:
-    """
-    Класс для создания объекта кнопки и подключения к ней функции
-    :param name: Текст на кнопке
-    :param func: Функция, которую требуется привязать к кнопке
-    :param style: Стиль кнопки
-    :param row: Ряд кнопки
-    :param disabled: Включена или выключена
-    :return: Объект кнопки
-    """
-    button = discord.ui.Button(label=name, style=style, row=row, disabled=disabled)
-    button.callback = func
-    return button
-
-
-def found_mp3(url: str) -> str:
-    """
-    Функция для нахождения имени прикрепленного файла
-    :param url: URL прикрепленного файла
-    :return: Название файла
-    """
-    url = url.lstrip('https://cdn.discordapp.com/attachments/')
-    url = url[url.find('/') + 1:]
-    url = url[url.find('/') + 1:]
-    url = url[:url.find('?ex=')]
-    return url
-
-
 @bot.command()
 @commands.guild_only()
 async def soundbar(ctx: Context) -> None:
@@ -357,12 +326,12 @@ async def soundbar(ctx: Context) -> None:
     :param ctx:
     :return:
     """
-    result = fn.fetch_data(1, 2000, int(ctx.guild.id))
+    result = fn.fetch_data(1, 2000, ctx.guild.id)
     lst = []
     for row in result:
         lst.append(row[1:])
     view = Soundbar()
-    await AddSound(ctx, lst, 2000, ctx.author, view).add_sound()
+    await ShowPage(ctx, lst, 2000, ctx.author, view).add_sound()
 
 
 @bot.command()
@@ -449,7 +418,7 @@ async def load(ctx: Context, url: str, *name) -> None:
         if not os.path.exists(directory):
             os.makedirs(directory)
 
-        file_name = found_mp3(str(url))
+        file_name = fn.found_mp3(str(url))
         flag = True
         for ext in extensions:
             if file_name.endswith(ext):
