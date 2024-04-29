@@ -397,7 +397,7 @@ async def load(ctx: Context, url: str, *name) -> None:
         embed = discord.Embed(description=f'{author.mention}, звук был успешно добавлен.', color=0xFF8C00)
         await ctx.send(embed=embed)
 
-    except requests.exceptions.MissingSchema:
+    except (requests.exceptions.MissingSchema, requests.exceptions.InvalidURL):
         name = [url] + list(name)
         if len(ctx.message.attachments) == 0:
             embed = discord.Embed(title='Файл не найден', color=0xFF0000)
